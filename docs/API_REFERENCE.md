@@ -79,6 +79,12 @@
 - `exportCedarBundle(policy)`: exports OAA policy as a Cedar-style schema and
   policy statements.
 
+## `@open-agent-access/compliance`
+
+- `listComplianceFrameworks()`: supported compliance mapping keys.
+- `getComplianceMapping(framework)`: evidence mapping for one framework.
+- `getAllComplianceMappings()`: evidence mappings for every supported framework.
+
 ## `@open-agent-access/hono`
 
 - `agentAccessMiddleware(options)`: Hono middleware for policy enforcement,
@@ -107,6 +113,7 @@ oaa evidence verify oaa-evidence-bundle.json
 oaa identity keygen
 oaa policy export agent-access.json --format opa --output /tmp/oaa-opa
 oaa x402 testnet-check --json
+oaa compliance map --framework all --json
 oaa identity sign-request --private-key .oaa/agent-private.pem --key-id did:web:agent.example#key-1 --agent-id did:web:agent.example --url URL --purpose research --use read
 oaa policy init --template publisher --origin https://example.com
 oaa policy validate ./agent-access.json

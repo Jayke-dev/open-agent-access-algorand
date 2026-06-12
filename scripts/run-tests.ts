@@ -47,6 +47,7 @@ import { agentAccessExpressMiddleware } from "../packages/express/src/index.js";
 import { createAgentAccessFastifyHook } from "../packages/fastify/src/index.js";
 import { withAgentAccessCloudflare } from "../packages/cloudflare/src/index.js";
 import { runConformanceSuite } from "../packages/conformance/src/index.js";
+import { getAllComplianceMappings, getComplianceMapping, listComplianceFrameworks } from "../packages/compliance/src/index.js";
 import { createAgentIdentityKeyPair, signAgentAccessHeaders, verifyAgentAccessHeaders } from "../packages/identity/src/index.js";
 import { evaluateMandate, validateMandateDocument, type MandateDocument } from "../packages/mandates/src/index.js";
 import { createAgentAccessMcpToolGuard, McpToolAuthorizationError } from "../packages/mcp/src/index.js";
@@ -440,6 +441,15 @@ test("policy-as-code exports OPA and Cedar-style bundles", () => {
   assert.equal(cedar.policies.length, policy.rules.length);
   assert.ok(cedar.policies[0].includes("context.policyHash"));
   assert.ok(cedar.policies.some((entry) => entry.includes("premium")));
+});
+
+test("compliance mappings expose framework evidence guidance", () => {
+  assert.deepEqual(listComplianceFrameworks(), ["nist-ai-rmf", "eu-ai-act", "soc2", "iso27001", "nis2"]);
+  const eu = getComplianceMapping("eu-ai-act", new Date("2026-06-12T00:00:00.000Z"));
+  assert.equal(eu.framework, "eu-ai-act");
+  assert.ok(eu.disclaimer.includes("not legal advice"));
+  assert.ok(eu.controls.some((control) => control.evidence.includes("trust-passport.json")));
+  assert.equal(getAllComplianceMappings().length, 5);
 });
 
 test("policy lint catches unsafe operational gaps", () => {

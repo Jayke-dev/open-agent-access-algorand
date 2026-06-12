@@ -81,6 +81,9 @@ importers:
 
   packages/cli:
     dependencies:
+      '@open-agent-access/compliance':
+        specifier: workspace:*
+        version: link:../compliance
       '@open-agent-access/conformance':
         specifier: workspace:*
         version: link:../conformance
@@ -111,6 +114,12 @@ importers:
       '@open-agent-access/core':
         specifier: workspace:*
         version: link:../core
+
+  packages/compliance:
+    dependencies:
+      '@open-agent-access/enterprise':
+        specifier: workspace:*
+        version: link:../enterprise
 
   packages/conformance:
     dependencies:

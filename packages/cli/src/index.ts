@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { checkCommand, fetchCommand } from "./commands/check.js";
+import { complianceMapCommand } from "./commands/compliance.js";
 import { conformanceRunCommand } from "./commands/conformance.js";
 import { doctorCommand } from "./commands/doctor.js";
 import { enterpriseExportAuditCommand, enterpriseReportCommand } from "./commands/enterprise.js";
@@ -53,6 +54,7 @@ async function main() {
 
   if (command === "init") return initCommand();
   if (command === "conformance" && subcommand === "run") return conformanceRunCommand(Boolean(options.json));
+  if (command === "compliance" && subcommand === "map") return complianceMapCommand(options);
   if (command === "doctor") return doctorCommand(options);
   if (command === "enterprise" && subcommand === "report") return enterpriseReportCommand(options);
   if (command === "enterprise" && subcommand === "export-audit" && target) return enterpriseExportAuditCommand(target, options);
@@ -120,6 +122,7 @@ function printHelp() {
 Commands:
   oaa init
   oaa conformance run [--json]
+  oaa compliance map [--framework nist-ai-rmf|eu-ai-act|soc2|iso27001|nis2|all] [--json]
   oaa doctor [--payments] [--policy agent-access.json] [--ledger .oaa/receipts.jsonl] [--json]
   oaa enterprise report [--policy agent-access.json] [--mandates agent-mandates.json] [--ledger .oaa/receipts.jsonl] [--json]
   oaa enterprise export-audit .oaa/receipts.jsonl [--format otel|cef] [--redact] [--strict]

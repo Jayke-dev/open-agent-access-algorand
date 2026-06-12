@@ -152,6 +152,7 @@ Premium fetches show payment-required metadata and do not pay unless `--pay` or
 | Enterprise controls | `@open-agent-access/enterprise`, `oaa enterprise report` | Supported |
 | Immutable evidence bundles | `@open-agent-access/evidence`, `oaa evidence bundle` | Supported |
 | Policy-as-code export | `@open-agent-access/policy-as-code`, `oaa policy export` | Supported |
+| Compliance mappings | `@open-agent-access/compliance`, `oaa compliance map` | Supported |
 | Redis replay store | `@open-agent-access/storage-redis` | Supported |
 | Postgres replay store | `@open-agent-access/storage-postgres` | Supported |
 | Algorand x402 TestNet | `@open-agent-access/payments-algorand-x402` | Adapter and fixtures supported |
@@ -183,6 +184,7 @@ pnpm oaa enterprise export-audit .oaa/receipts.jsonl --format cef --redact --str
 pnpm oaa evidence bundle --policy agent-access.json --mandates agent-mandates.json --ledger .oaa/receipts.jsonl --output oaa-evidence-bundle.json
 pnpm oaa policy export agent-access.json --format opa --output /tmp/oaa-opa
 pnpm oaa x402 testnet-check --json
+pnpm oaa compliance map --framework all --json
 pnpm oaa identity keygen
 ```
 
@@ -223,6 +225,7 @@ authors, and protocol reviewers are welcome. Good starting labels include
 - [Enterprise Readiness](docs/ENTERPRISE_READINESS.md)
 - [Immutable Evidence Storage](docs/IMMUTABLE_EVIDENCE.md)
 - [Policy As Code Export](docs/POLICY_AS_CODE.md)
+- [Compliance Mappings](docs/COMPLIANCE_MAPPINGS.md)
 - [Architecture Decision Records](docs/ADRS.md)
 - [Production Deployment](docs/PRODUCTION_DEPLOYMENT.md)
 - [Confidence Checklist](docs/CONFIDENCE_CHECKLIST.md)

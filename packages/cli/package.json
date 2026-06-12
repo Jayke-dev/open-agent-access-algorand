@@ -26,6 +26,7 @@
     "build": "tsc -p ../../tsconfig.base.json"
   },
   "dependencies": {
+    "@open-agent-access/compliance": "workspace:*",
     "@open-agent-access/conformance": "workspace:*",
     "@open-agent-access/core": "workspace:*",
     "@open-agent-access/enterprise": "workspace:*",
