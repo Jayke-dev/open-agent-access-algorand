@@ -1,0 +1,52 @@
+{
+  "version": "0.1",
+  "protocol": "open-agent-access",
+  "site": {
+    "name": "Open Agent Access Example",
+    "origin": "http://localhost:4021",
+    "contact": "mailto:agents@example.invalid",
+    "securityContact": "mailto:security@example.invalid",
+    "terms": "http://localhost:4021/agent-terms"
+  },
+  "defaults": {
+    "decision": "review",
+    "respectRobotsTxt": true,
+    "requireAgentIdentity": true,
+    "requirePurpose": true,
+    "requireReceipt": true
+  },
+  "rules": [
+    {
+      "id": "free-research",
+      "match": { "methods": ["GET"], "paths": ["/free"] },
+      "decision": "allow",
+      "purposes": ["research", "accessibility"],
+      "uses": ["read", "summarize", "ai-input"],
+      "deniedUses": ["ai-train"],
+      "rateLimit": { "requests": 60, "window": "1m", "burst": 10, "respectRetryAfter": true },
+      "attribution": { "required": true, "format": "source-url" },
+      "retention": { "maxAge": "30d", "allowEmbedding": false }
+    },
+    {
+      "id": "premium-report-x402",
+      "match": { "methods": ["GET"], "paths": ["/premium/**"] },
+      "decision": "charge",
+      "purposes": ["research", "agentic-commerce", "monitoring"],
+      "uses": ["read", "summarize", "ai-input"],
+      "deniedUses": ["ai-train"],
+      "price": { "amount": "0.005", "currency": "USD", "unit": "request" },
+      "payment": {
+        "type": "x402",
+        "settlement": "algorand",
+        "network": "testnet",
+        "scheme": "exact",
+        "asset": "USDC",
+        "assetIdEnv": "USDC_TESTNET_ASA_ID",
+        "payToEnv": "AVM_ADDRESS",
+        "facilitatorUrlEnv": "FACILITATOR_URL"
+      },
+      "rateLimit": { "requests": 30, "window": "1m", "burst": 5, "respectRetryAfter": true },
+      "receipt": { "required": true, "signing": "optional-v0" }
+    }
+  ]
+}

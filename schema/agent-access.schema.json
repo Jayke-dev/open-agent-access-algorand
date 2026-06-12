@@ -1,0 +1,156 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://open-agent-access.org/schema/agent-access-v0.1.json",
+  "title": "Open Agent Access Policy",
+  "type": "object",
+  "required": ["version", "protocol", "site", "rules"],
+  "additionalProperties": true,
+  "properties": {
+    "version": { "type": "string" },
+    "protocol": { "const": "open-agent-access" },
+    "site": {
+      "type": "object",
+      "required": ["name", "origin"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "origin": { "type": "string", "format": "uri" },
+        "contact": { "type": "string" },
+        "securityContact": { "type": "string" },
+        "terms": { "type": "string", "format": "uri" }
+      }
+    },
+    "defaults": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "decision": { "$ref": "#/$defs/decision" },
+        "respectRobotsTxt": { "type": "boolean" },
+        "requireAgentIdentity": { "type": "boolean" },
+        "requirePurpose": { "type": "boolean" },
+        "requireReceipt": { "type": "boolean" }
+      }
+    },
+    "rules": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/rule" }
+    },
+    "expiresAt": { "type": "string" },
+    "jurisdiction": { "type": "string" },
+    "reviewUrl": { "type": "string", "format": "uri" }
+  },
+  "$defs": {
+    "decision": {
+      "enum": ["allow", "deny", "charge", "throttle", "review", "redirect_to_api", "human_only"]
+    },
+    "rule": {
+      "type": "object",
+      "required": ["id", "decision"],
+      "additionalProperties": true,
+      "properties": {
+        "id": { "type": "string" },
+        "match": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "methods": { "type": "array", "items": { "type": "string" } },
+            "paths": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "decision": { "$ref": "#/$defs/decision" },
+        "purposes": { "type": "array", "items": { "type": "string" } },
+        "deniedPurposes": { "type": "array", "items": { "type": "string" } },
+        "uses": { "type": "array", "items": { "type": "string" } },
+        "allowedUses": { "type": "array", "items": { "type": "string" } },
+        "deniedUses": { "type": "array", "items": { "type": "string" } },
+        "rateLimit": { "$ref": "#/$defs/rateLimit" },
+        "loadPolicy": { "$ref": "#/$defs/loadPolicy" },
+        "attribution": { "$ref": "#/$defs/attribution" },
+        "retention": { "$ref": "#/$defs/retention" },
+        "training": { "type": "boolean" },
+        "summarisation": { "type": "boolean" },
+        "summarization": { "type": "boolean" },
+        "indexing": { "type": "boolean" },
+        "quoteLimit": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "maxWords": { "type": "integer", "minimum": 1 },
+            "maxCharacters": { "type": "integer", "minimum": 1 }
+          }
+        },
+        "price": {
+          "type": "object",
+          "required": ["amount", "currency"],
+          "properties": {
+            "amount": { "type": "string" },
+            "currency": { "type": "string" },
+            "unit": { "type": "string" }
+          }
+        },
+        "payment": { "$ref": "#/$defs/payment" },
+        "receipt": {
+          "type": "object",
+          "properties": {
+            "required": { "type": "boolean" },
+            "signing": { "type": "string" }
+          }
+        },
+        "redirectTo": { "type": "string", "format": "uri" },
+        "expiresAt": { "type": "string" },
+        "jurisdiction": { "type": "string" },
+        "reviewUrl": { "type": "string", "format": "uri" }
+      }
+    },
+    "rateLimit": {
+      "type": "object",
+      "required": ["requests", "window"],
+      "properties": {
+        "requests": { "type": "integer", "minimum": 1 },
+        "window": { "type": "string" },
+        "burst": { "type": "integer", "minimum": 1 },
+        "respectRetryAfter": { "type": "boolean" }
+      }
+    },
+    "loadPolicy": {
+      "type": "object",
+      "properties": {
+        "maxRps": { "type": "number", "exclusiveMinimum": 0 },
+        "preferredWindows": { "type": "array", "items": { "type": "string" } },
+        "preferBulkEndpoint": { "type": "boolean" },
+        "emergencyStop": { "type": "string", "format": "uri" }
+      }
+    },
+    "attribution": {
+      "type": "object",
+      "properties": {
+        "required": { "type": "boolean" },
+        "format": { "type": "string" }
+      }
+    },
+    "retention": {
+      "type": "object",
+      "properties": {
+        "maxAge": { "type": "string" },
+        "allowEmbedding": { "type": "boolean" }
+      }
+    },
+    "payment": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "type": "string" },
+        "settlement": { "type": "string" },
+        "network": { "type": "string" },
+        "scheme": { "type": "string" },
+        "asset": { "type": "string" },
+        "assetId": { "type": ["string", "number"] },
+        "assetIdEnv": { "type": "string" },
+        "payTo": { "type": "string" },
+        "payToEnv": { "type": "string" },
+        "facilitatorUrl": { "type": "string", "format": "uri" },
+        "facilitatorUrlEnv": { "type": "string" }
+      }
+    }
+  }
+}

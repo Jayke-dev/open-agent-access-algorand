@@ -1,0 +1,44 @@
+{
+  "name": "open-agent-access-algorand",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Open Agent Access for Algorand: policy discovery, agent preflight, receipts, and Algorand x402 settlement.",
+  "type": "module",
+  "license": "Apache-2.0",
+  "packageManager": "pnpm@9.15.4",
+  "keywords": [
+    "algorand",
+    "x402",
+    "agents",
+    "agent-access",
+    "receipts",
+    "policy"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kirke-labs/open-agent-access-algorand.git"
+  },
+  "bugs": {
+    "url": "https://github.com/kirke-labs/open-agent-access-algorand/issues"
+  },
+  "homepage": "https://github.com/kirke-labs/open-agent-access-algorand#readme",
+  "scripts": {
+    "build": "tsc -p tsconfig.base.json",
+    "test": "tsx scripts/run-tests.ts",
+    "test:vitest": "vitest run --run --reporter=verbose --no-file-parallelism --maxWorkers=1",
+    "lint": "tsc -p tsconfig.base.json --noEmit",
+    "package:check": "tsx scripts/check-packages.ts",
+    "pack:dry-run": "tsx scripts/pack-dry-run.ts",
+    "security:check": "tsx scripts/check-secrets.ts",
+    "smoke:example": "tsx scripts/smoke-example.ts",
+    "oaa": "tsx packages/cli/src/index.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "hono": "^4.6.14",
+    "typescript": "^5.7.2",
+    "tsx": "^4.19.2",
+    "vite": "^7.2.7",
+    "vitest": "^4.1.8"
+  }
+}

@@ -1,0 +1,72 @@
+{
+  "version": "0.1",
+  "protocol": "open-agent-access",
+  "site": {
+    "name": "Example Independent Publisher",
+    "origin": "https://publisher.example",
+    "contact": "mailto:agents@publisher.example",
+    "securityContact": "mailto:security@publisher.example",
+    "terms": "https://publisher.example/agent-terms"
+  },
+  "defaults": {
+    "decision": "review",
+    "respectRobotsTxt": true,
+    "requireAgentIdentity": true,
+    "requirePurpose": true,
+    "requireReceipt": true
+  },
+  "rules": [
+    {
+      "id": "public-research-summaries",
+      "match": { "methods": ["GET"], "paths": ["/news/**", "/analysis/**"] },
+      "decision": "allow",
+      "purposes": ["research", "accessibility", "indexing"],
+      "uses": ["read", "summarize", "quote", "ai-input"],
+      "deniedUses": ["ai-train"],
+      "training": false,
+      "summarisation": true,
+      "indexing": true,
+      "quoteLimit": { "maxWords": 80 },
+      "rateLimit": { "requests": 60, "window": "1m", "burst": 10, "respectRetryAfter": true },
+      "loadPolicy": {
+        "maxRps": 1,
+        "preferredWindows": ["02:00-05:00 Europe/London"],
+        "preferBulkEndpoint": false,
+        "emergencyStop": "https://publisher.example/.well-known/agent-stop"
+      },
+      "attribution": { "required": true, "format": "source-url" },
+      "retention": { "maxAge": "30d", "allowEmbedding": false }
+    },
+    {
+      "id": "premium-archive-x402",
+      "match": { "methods": ["GET"], "paths": ["/archive/premium/**"] },
+      "decision": "charge",
+      "purposes": ["research", "monitoring"],
+      "uses": ["read", "summarize", "ai-input"],
+      "deniedUses": ["ai-train"],
+      "price": { "amount": "0.005", "currency": "USD", "unit": "request" },
+      "payment": {
+        "type": "x402",
+        "settlement": "algorand",
+        "network": "testnet",
+        "scheme": "exact",
+        "asset": "USDC",
+        "assetIdEnv": "USDC_TESTNET_ASA_ID",
+        "payToEnv": "AVM_ADDRESS",
+        "facilitatorUrlEnv": "FACILITATOR_URL"
+      },
+      "rateLimit": { "requests": 30, "window": "1m", "burst": 5, "respectRetryAfter": true },
+      "receipt": { "required": true, "signing": "optional-v0" }
+    },
+    {
+      "id": "deny-ai-training",
+      "match": { "methods": ["GET"], "paths": ["/**"] },
+      "decision": "deny",
+      "purposes": ["model-training"],
+      "uses": ["ai-train"]
+    }
+  ],
+  "expiresAt": "2026-12-31T23:59:59Z",
+  "jurisdiction": "GB",
+  "reviewUrl": "https://publisher.example/agent-review"
+}

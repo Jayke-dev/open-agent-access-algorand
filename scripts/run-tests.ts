@@ -1,0 +1,548 @@
+import assert from "node:assert/strict";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { Hono } from "hono";
+import {
+  appendReceipt,
+  budgetAllowsPrice,
+  buildAgentAccessHeaders,
+  buildSiteDecisionHeaders,
+  createReceiptSigningKeyPair,
+  createPolicyTemplate,
+  decideAccess,
+  exportDigest,
+  explainPolicyDecision,
+  hashCanonicalJson,
+  lintAgentAccessPolicy,
+  parseAgentAccessHeaders,
+  parseSiteDecisionHeaders,
+  pathMatches,
+  readReceiptLedger,
+  reconcileReceiptLedgers,
+  signReceipt,
+  validateAgentAccessPolicy,
+  verifyReceiptChain,
+  verifyReceiptSignature,
+  type AgentAccessPolicy
+} from "../packages/core/src/index.js";
+import {
+  buildAlgorandX402Accepts,
+  createAlgorandX402PaymentRequiredFixture,
+  createAlgorandX402SettlementFixture,
+  createMalformedAlgorandX402SettlementFixture,
+  parseAlgorandX402SettlementHeaders,
+  validateAlgorandX402Config,
+  wrapFetchWithAlgorandX402Payment
+} from "../packages/payments-algorand-x402/src/index.js";
+import { agentAccessMiddleware, type ReplayStore } from "../packages/hono/src/index.js";
+import { createRedisReplayStore } from "../packages/storage-redis/src/index.js";
+import { createPostgresReplayStore, createPostgresReplayTableSql } from "../packages/storage-postgres/src/index.js";
+import { agentAccessExpressMiddleware } from "../packages/express/src/index.js";
+import { createAgentAccessFastifyHook } from "../packages/fastify/src/index.js";
+import { withAgentAccessCloudflare } from "../packages/cloudflare/src/index.js";
+import { runConformanceSuite } from "../packages/conformance/src/index.js";
+
+type Test = { name: string; fn: () => Promise<void> | void };
+const tests: Test[] = [];
+
+function test(name: string, fn: Test["fn"]) {
+  tests.push({ name, fn });
+}
+
+const policy: AgentAccessPolicy = {
+  version: "0.1",
+  protocol: "open-agent-access",
+  site: { name: "Example", origin: "https://example.com" },
+  defaults: { decision: "review", requireAgentIdentity: true, requirePurpose: true },
+  rules: [
+    {
+      id: "docs",
+      match: { methods: ["GET"], paths: ["/docs/**"] },
+      decision: "allow",
+      purposes: ["research"],
+      uses: ["read"],
+      deniedUses: ["ai-train"],
+      rateLimit: { requests: 2, window: "1m" }
+    },
+    {
+      id: "premium",
+      match: { methods: ["GET"], paths: ["/premium/**"] },
+      decision: "charge",
+      purposes: ["research"],
+      uses: ["ai-input"],
+      price: { amount: "0.005", currency: "USD", unit: "request" }
+    }
+  ]
+};
+
+test("policy schema validation", () => {
+  assert.equal(validateAgentAccessPolicy(policy).rules.length, 2);
+  for (const template of ["publisher", "paid-api", "mcp-tool", "docs-site", "research-friendly"] as const) {
+    const generated = validateAgentAccessPolicy(createPolicyTemplate(template, "https://template.example"));
+    assert.ok(generated.rules.length >= 1);
+  }
+});
+
+test("conformance suite passes reference fixtures", async () => {
+  const result = await runConformanceSuite();
+  assert.equal(result.ok, true);
+  assert.ok(result.checks.length >= 8);
+});
+
+test("policy lint catches unsafe operational gaps", () => {
+  const result = lintAgentAccessPolicy({
+    ...policy,
+    defaults: { decision: "allow", respectRobotsTxt: false },
+    rules: [
+      {
+        id: "paid",
+        match: { methods: ["GET"], paths: ["/paid"] },
+        decision: "charge"
+      }
+    ]
+  });
+  assert.equal(result.ok, false);
+  assert.ok(result.findings.some((finding) => finding.code === "unsafe_default_allow"));
+  assert.ok(result.findings.some((finding) => finding.code === "charge_without_price"));
+  assert.ok(result.findings.some((finding) => finding.code === "charge_without_payment"));
+});
+
+test("policy explain reports matching and skipped rules", () => {
+  const explanation = explainPolicyDecision(policy, {
+    url: "https://example.com/premium/report",
+    method: "GET",
+    purpose: "research",
+    use: "ai-input",
+    agent: { id: "did:web:agent.example" }
+  });
+  assert.equal(explanation.decision.decision, "charge");
+  assert.equal(explanation.decision.rule?.id, "premium");
+  assert.equal(explanation.rules.find((rule) => rule.ruleId === "premium")?.matched, true);
+  assert.equal(explanation.rules.find((rule) => rule.ruleId === "docs")?.pathMatched, false);
+});
+
+test("route/path matching", () => {
+  assert.equal(pathMatches("/docs/**", "/docs/a/b"), true);
+  assert.equal(pathMatches("/docs/**", "/blog/a"), false);
+});
+
+test("decision engine allow/deny/default", () => {
+  assert.equal(decideAccess(policy, {
+    url: "https://example.com/docs/a",
+    method: "GET",
+    purpose: "research",
+    use: "read",
+    agent: { id: "did:web:agent.example" }
+  }).decision, "allow");
+
+  assert.equal(decideAccess(policy, {
+    url: "https://example.com/docs/a",
+    method: "GET",
+    purpose: "research",
+    use: "ai-train",
+    agent: { id: "did:web:agent.example" }
+  }).decision, "deny");
+
+  assert.equal(decideAccess(policy, {
+    url: "https://example.com/unknown",
+    method: "GET",
+    purpose: "research",
+    use: "read",
+    agent: { id: "did:web:agent.example" }
+  }).decision, "review");
+
+  assert.equal(decideAccess({ ...policy, expiresAt: "2000-01-01T00:00:00Z" }, {
+    url: "https://example.com/docs/a",
+    method: "GET",
+    purpose: "research",
+    use: "read",
+    agent: { id: "did:web:agent.example" }
+  }).reason, "policy_expired");
+});
+
+test("budget comparison and canonical hashing", () => {
+  assert.equal(budgetAllowsPrice({ amount: "0.05", currency: "USD" }, { amount: "0.005", currency: "USD" }), true);
+  assert.equal(budgetAllowsPrice({ amount: "0.001", currency: "USD" }, { amount: "0.005", currency: "USD" }), false);
+  assert.equal(hashCanonicalJson({ b: 1, a: 2 }), hashCanonicalJson({ a: 2, b: 1 }));
+});
+
+test("agent and site headers", () => {
+  const agentHeaders = buildAgentAccessHeaders({
+    agent: { id: "did:web:a", name: "A", operator: "Ops", principal: "user:1", contact: "mailto:a@example.com" },
+    purpose: "research",
+    use: "read",
+    budget: { currency: "USD", amount: "0.05" },
+    traceId: "trace"
+  });
+  assert.equal(parseAgentAccessHeaders(agentHeaders)?.agent.id, "did:web:a");
+  assert.equal(parseAgentAccessHeaders(agentHeaders)?.budget?.amount, "0.05");
+
+  const siteHeaders = buildSiteDecisionHeaders({
+    decision: "allow",
+    policyRef: "policy#rule",
+    traceId: "trace",
+    rateLimitLimit: 10,
+    rateLimitRemaining: 9,
+    attributionRequired: true,
+    retention: "30d",
+    receiptId: "receipt"
+  });
+  assert.equal(parseSiteDecisionHeaders(siteHeaders).decision, "allow");
+  assert.equal(parseSiteDecisionHeaders(siteHeaders).receiptId, "receipt");
+});
+
+test("receipt append, verify, digest, and tamper detection", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "oaa-"));
+  const ledger = join(dir, "receipts.jsonl");
+  await appendReceipt(ledger, {
+    receiptVersion: "0.1",
+    receiptType: "agent_access",
+    role: "agent",
+    traceId: "trace-1",
+    method: "GET",
+    url: "https://example.com/a",
+    origin: "https://example.com",
+    payment: { required: false }
+  });
+  await appendReceipt(ledger, {
+    receiptVersion: "0.1",
+    receiptType: "agent_access",
+    role: "agent",
+    traceId: "trace-2",
+    method: "GET",
+    url: "https://example.com/b",
+    origin: "https://example.com",
+    payment: { required: false }
+  });
+  assert.equal((await readReceiptLedger(ledger)).length, 2);
+  assert.equal((await verifyReceiptChain(ledger)).valid, true);
+  assert.equal((await exportDigest(ledger)).count, 2);
+
+  const text = await readFile(ledger, "utf8");
+  await writeFile(ledger, text.replace("trace-2", "trace-x"), "utf8");
+  assert.equal((await verifyReceiptChain(ledger)).valid, false);
+
+  const concurrentLedger = join(dir, "concurrent.jsonl");
+  await Promise.all(Array.from({ length: 8 }, (_, index) => appendReceipt(concurrentLedger, {
+    receiptVersion: "0.1",
+    receiptType: "agent_access",
+    role: "agent",
+    traceId: `trace-${index}`,
+    method: "GET",
+    url: `https://example.com/${index}`,
+    origin: "https://example.com",
+    payment: { required: false }
+  })));
+  assert.equal((await verifyReceiptChain(concurrentLedger)).valid, true);
+  assert.equal((await readReceiptLedger(concurrentLedger)).length, 8);
+
+  const [receipt] = await readReceiptLedger(concurrentLedger);
+  const keys = createReceiptSigningKeyPair();
+  const signed = signReceipt(receipt, keys.privateKeyPem, keys.publicKeyPem);
+  assert.equal(verifyReceiptSignature(signed), true);
+  assert.equal(verifyReceiptSignature({ ...signed, traceId: "tampered" }), false);
+
+  const agentLedger = join(dir, "agent.jsonl");
+  const siteLedger = join(dir, "site.jsonl");
+  const shared = {
+    receiptVersion: "0.1" as const,
+    receiptType: "agent_access" as const,
+    traceId: "shared-trace",
+    method: "GET",
+    url: "https://example.com/premium/report",
+    origin: "https://example.com",
+    policy: { ruleId: "premium", policyHash: "policy-hash", decision: "charge" as const },
+    payment: { required: true, type: "x402", settlement: "algorand", network: "testnet", price: { amount: "0.005", currency: "USD" } }
+  };
+  await appendReceipt(agentLedger, { ...shared, role: "agent" });
+  await appendReceipt(siteLedger, { ...shared, role: "site" });
+  assert.equal((await reconcileReceiptLedgers(agentLedger, siteLedger)).valid, true);
+
+  const mismatchSiteLedger = join(dir, "site-mismatch.jsonl");
+  await appendReceipt(mismatchSiteLedger, {
+    ...shared,
+    role: "site",
+    policy: { ...shared.policy, decision: "deny" }
+  });
+  const reconciliation = await reconcileReceiptLedgers(agentLedger, mismatchSiteLedger);
+  assert.equal(reconciliation.valid, false);
+  assert.equal(reconciliation.mismatches[0].field, "policy.decision");
+});
+
+test("production replay store adapters", async () => {
+  const redisData = new Map<string, string>();
+  const redis = createRedisReplayStore({
+    get(key) {
+      return redisData.get(key) ?? null;
+    },
+    set(key, value) {
+      redisData.set(key, value);
+      return "OK";
+    }
+  });
+  assert.equal(await redis.has("abc"), false);
+  await redis.set("abc", 1000);
+  assert.equal(await redis.has("abc"), true);
+
+  const postgresData = new Set<string>();
+  const postgres = createPostgresReplayStore({
+    async query(sql: string, params?: unknown[]) {
+      if (sql.startsWith("insert")) {
+        postgresData.add(params?.[0] as string);
+        return { rowCount: 1 };
+      }
+      if (sql.startsWith("select")) {
+        return { rowCount: postgresData.has(params?.[0] as string) ? 1 : 0 };
+      }
+      return { rowCount: 0 };
+    }
+  });
+  assert.ok(createPostgresReplayTableSql().includes("create table"));
+  assert.equal(await postgres.has("def"), false);
+  await postgres.set("def", 1000);
+  assert.equal(await postgres.has("def"), true);
+});
+
+test("Algorand x402 adapter guardrails and metadata", async () => {
+  assert.equal(validateAlgorandX402Config({ enabled: false }).valid, true);
+  assert.equal(validateAlgorandX402Config({ enabled: true, network: "badnet", signer: {} }).errors.includes("unsupported_algorand_network"), true);
+  assert.equal(validateAlgorandX402Config({ enabled: true, signer: {}, facilitatorUrl: "http://example.com" }).errors.includes("facilitator_url_must_use_https"), true);
+  await assert.rejects(() => wrapFetchWithAlgorandX402Payment(fetch, { enabled: false }), /disabled/);
+  await assert.rejects(() => wrapFetchWithAlgorandX402Payment(fetch, {
+    enabled: true,
+    signer: {},
+    budget: { amount: "0.001", currency: "USD" },
+    price: { amount: "0.005", currency: "USD" }
+  }), /budget/);
+  const accepts = buildAlgorandX402Accepts({
+    enabled: true,
+    payTo: "TESTADDR",
+    price: { amount: "0.005", currency: "USD" },
+    asset: "USDC",
+    assetId: "123"
+  });
+  assert.equal(accepts[0].scheme, "exact");
+  assert.equal(accepts[0].maxAmountRequired, "$0.005");
+  const settlement = parseAlgorandX402SettlementHeaders(new Headers({
+    "X-PAYMENT-RESPONSE": JSON.stringify({ transactionId: "tx", payer: "payer", payTo: "payto" })
+  }));
+  assert.equal(settlement.transactionId, "tx");
+  assert.equal(parseAlgorandX402SettlementHeaders(new Headers({ "X-PAYMENT-RESPONSE": "not-json" })).settlementSuccess, true);
+  assert.equal(createAlgorandX402PaymentRequiredFixture().status, 402);
+  assert.equal(parseAlgorandX402SettlementHeaders(createAlgorandX402SettlementFixture({ transactionId: "fixture-tx" })).transactionId, "fixture-tx");
+  assert.equal(parseAlgorandX402SettlementHeaders(createMalformedAlgorandX402SettlementFixture()).settlementSuccess, true);
+});
+
+test("Express and Fastify adapters enforce policies", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "oaa-framework-"));
+  const policyPath = join(dir, "agent-access.json");
+  const expressLedger = join(dir, "express.jsonl");
+  const fastifyLedger = join(dir, "fastify.jsonl");
+  await writeFile(policyPath, JSON.stringify({
+    version: "0.1",
+    protocol: "open-agent-access",
+    site: { name: "Framework", origin: "http://localhost" },
+    defaults: { decision: "deny", requireAgentIdentity: true, requirePurpose: true },
+    rules: [
+      { id: "free", match: { methods: ["GET"], paths: ["/free"] }, decision: "allow", purposes: ["research"], uses: ["read"], rateLimit: { requests: 20, window: "1m" } },
+      { id: "paid", match: { methods: ["GET"], paths: ["/paid"] }, decision: "charge", purposes: ["research"], uses: ["ai-input"], price: { amount: "0.005", currency: "USD" }, payment: { type: "x402", settlement: "algorand", network: "testnet" } }
+    ]
+  }), "utf8");
+
+  const headers = headersToObject(buildAgentAccessHeaders({
+    agent: { id: "did:web:agent.example" },
+    purpose: "research",
+    use: "read",
+    traceId: "framework-trace"
+  }));
+
+  let expressNextCalled = false;
+  const expressStatus: { code?: number; body?: unknown; headers: Record<string, string> } = { headers: {} };
+  await agentAccessExpressMiddleware({ policyPath, receipts: { type: "jsonl", path: expressLedger } })(
+    { method: "GET", protocol: "http", originalUrl: "/free", headers, get: (name) => name === "host" ? "localhost" : undefined },
+    {
+      status(code) {
+        expressStatus.code = code;
+        return this;
+      },
+      setHeader(name, value) {
+        expressStatus.headers[name] = value;
+      },
+      json(body) {
+        expressStatus.body = body;
+      }
+    },
+    () => {
+      expressNextCalled = true;
+    }
+  );
+  assert.equal(expressNextCalled, true);
+  assert.equal(expressStatus.headers["aa-decision"], "allow");
+  assert.equal((await readReceiptLedger(expressLedger)).length, 1);
+
+  const fastifySent: { code?: number; body?: unknown; headers: Record<string, string> } = { headers: {} };
+  const paidHeaders = { ...headers, "aa-use": "ai-input" };
+  await createAgentAccessFastifyHook({ policyPath, receipts: { type: "jsonl", path: fastifyLedger } })(
+    { method: "GET", url: "/paid", protocol: "http", hostname: "localhost", headers: paidHeaders },
+    {
+      header(name, value) {
+        fastifySent.headers[name] = value;
+        return this;
+      },
+      code(statusCode) {
+        fastifySent.code = statusCode;
+        return this;
+      },
+      send(body) {
+        fastifySent.body = body;
+      }
+    }
+  );
+  assert.equal(fastifySent.code, 402);
+  assert.equal(fastifySent.headers["aa-decision"], "charge");
+  assert.equal((await readReceiptLedger(fastifyLedger)).length, 1);
+});
+
+test("Cloudflare adapter enforces inline policy", async () => {
+  const receipts: unknown[] = [];
+  const handler = withAgentAccessCloudflare({
+    policy: {
+      version: "0.1",
+      protocol: "open-agent-access",
+      site: { name: "Worker", origin: "https://worker.example" },
+      defaults: { decision: "deny", requireAgentIdentity: true, requirePurpose: true },
+      rules: [
+        { id: "free", match: { methods: ["GET"], paths: ["/free"] }, decision: "allow", purposes: ["research"], uses: ["read"], rateLimit: { requests: 20, window: "1m" } },
+        { id: "paid", match: { methods: ["GET"], paths: ["/paid"] }, decision: "charge", purposes: ["research"], uses: ["ai-input"], price: { amount: "0.005", currency: "USD" }, payment: { type: "x402", settlement: "algorand", network: "testnet" } }
+      ]
+    },
+    receiptSink(receipt) {
+      receipts.push(receipt);
+    }
+  }, async () => Response.json({ ok: true }));
+
+  const freeHeaders = buildAgentAccessHeaders({
+    agent: { id: "did:web:agent.example" },
+    purpose: "research",
+    use: "read",
+    traceId: "worker-trace"
+  });
+  const free = await handler(new Request("https://worker.example/free", { headers: freeHeaders }), {}, {});
+  assert.equal(free.status, 200);
+  assert.equal(free.headers.get("AA-Decision"), "allow");
+
+  const paidHeaders = buildAgentAccessHeaders({
+    agent: { id: "did:web:agent.example" },
+    purpose: "research",
+    use: "ai-input",
+    traceId: "worker-paid-trace"
+  });
+  const paid = await handler(new Request("https://worker.example/paid", { headers: paidHeaders }), {}, {});
+  assert.equal(paid.status, 402);
+  assert.equal(paid.headers.get("AA-Decision"), "charge");
+  assert.equal(receipts.length, 2);
+});
+
+test("Hono middleware decisions and receipts", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "oaa-hono-"));
+  const policyPath = join(dir, "agent-access.json");
+  const ledgerPath = join(dir, "site-receipts.jsonl");
+  await writeFile(policyPath, JSON.stringify({
+    version: "0.1",
+    protocol: "open-agent-access",
+    site: { name: "Test", origin: "http://localhost" },
+    defaults: { decision: "deny", requireAgentIdentity: true, requirePurpose: true },
+    rules: [
+      { id: "free", match: { methods: ["GET"], paths: ["/free"] }, decision: "allow", purposes: ["research"], uses: ["read"], rateLimit: { requests: 2, window: "1m" } },
+      { id: "deny", match: { methods: ["GET"], paths: ["/deny"] }, decision: "deny", purposes: ["research"], uses: ["read"] },
+      { id: "throttle", match: { methods: ["GET"], paths: ["/throttle"] }, decision: "allow", purposes: ["research"], uses: ["read"], rateLimit: { requests: 1, window: "1m" } },
+      { id: "paid", match: { methods: ["GET"], paths: ["/paid"] }, decision: "charge", purposes: ["research"], uses: ["ai-input"], price: { amount: "0.005", currency: "USD" }, payment: { type: "x402", settlement: "algorand", network: "testnet" } }
+    ]
+  }), "utf8");
+
+  const app = new Hono();
+  const replayKeys = new Set<string>();
+  const replayStore: ReplayStore = {
+    has(key) {
+      return replayKeys.has(key);
+    },
+    set(key) {
+      replayKeys.add(key);
+    }
+  };
+  app.use("*", agentAccessMiddleware({
+    policyPath,
+    receipts: { type: "jsonl", path: ledgerPath },
+    replayStore,
+    algorandX402: { enabled: true, payTo: "TESTADDR", facilitatorUrl: "https://facilitator.goplausible.xyz", network: "testnet" }
+  }));
+  app.get("/free", (c) => c.json({ ok: true }));
+  app.get("/deny", (c) => c.json({ ok: true }));
+  app.get("/throttle", (c) => c.json({ ok: true }));
+  app.get("/paid", (c) => c.json({ ok: true }));
+
+  const headers = buildAgentAccessHeaders({
+    agent: { id: "did:web:agent.example" },
+    purpose: "research",
+    use: "read",
+    traceId: "trace"
+  });
+
+  const free = await app.request("/free", { headers });
+  assert.equal(free.status, 200);
+  assert.equal(free.headers.get("AA-Decision"), "allow");
+  assert.equal(free.headers.get("X-Content-Type-Options"), "nosniff");
+  assert.ok(free.headers.get("AA-Policy-Hash"));
+  assert.ok(free.headers.get("AA-Payment-Resource"));
+  assert.equal((await readReceiptLedger(ledgerPath)).length, 1);
+
+  const denied = await app.request("/deny", { headers });
+  assert.equal(denied.status, 403);
+  assert.equal(denied.headers.get("AA-Decision"), "deny");
+
+  await app.request("/throttle", { headers });
+  const throttled = await app.request("/throttle", { headers });
+  assert.equal(throttled.status, 429);
+  assert.ok(throttled.headers.get("Retry-After"));
+
+  const paidHeaders = new Headers(headers);
+  paidHeaders.set("AA-Use", "ai-input");
+  const unpaid = await app.request("/paid", { headers: paidHeaders });
+  assert.equal(unpaid.status, 402);
+  assert.equal(unpaid.headers.get("AA-Decision"), "charge");
+
+  paidHeaders.set("X-PAYMENT", "test-proof");
+  const paid = await app.request("/paid", { headers: paidHeaders });
+  assert.equal(paid.status, 200);
+
+  const replay = await app.request("/paid", { headers: paidHeaders });
+  assert.equal(replay.status, 409);
+  assert.equal((await replay.json() as { error: string }).error, "payment_replay_detected");
+});
+
+let passed = 0;
+for (const entry of tests) {
+  try {
+    await entry.fn();
+    passed += 1;
+    console.log(`ok ${passed} - ${entry.name}`);
+  } catch (error) {
+    console.error(`not ok ${passed + 1} - ${entry.name}`);
+    console.error(error);
+    process.exitCode = 1;
+    break;
+  }
+}
+
+if (!process.exitCode) {
+  console.log(`\n${passed}/${tests.length} tests passed`);
+}
+
+function headersToObject(headers: Headers): Record<string, string> {
+  const output: Record<string, string> = {};
+  headers.forEach((value, key) => {
+    output[key] = value;
+  });
+  return output;
+}

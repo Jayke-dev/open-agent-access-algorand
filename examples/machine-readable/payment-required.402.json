@@ -1,0 +1,15 @@
+{
+  "error": "payment_required",
+  "decision": "charge",
+  "ruleId": "premium-archive-x402",
+  "traceId": "d4f0a4e2-0000-4000-9000-000000000402",
+  "policyHash": "b74f2c6a...",
+  "payment": {
+    "type": "x402",
+    "settlement": "algorand",
+    "network": "testnet",
+    "asset": "USDC",
+    "price": { "amount": "0.005", "currency": "USD", "unit": "request" },
+    "facilitatorUrl": "https://facilitator.goplausible.xyz"
+  }
+}

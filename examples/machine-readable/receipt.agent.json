@@ -1,0 +1,32 @@
+{
+  "receiptVersion": "0.1",
+  "receiptType": "agent_access",
+  "role": "agent",
+  "traceId": "d4f0a4e2-0000-4000-9000-000000000001",
+  "receiptId": "oaa_00000000-0000-4000-9000-000000000001",
+  "timestamp": "2026-06-12T00:00:00.000Z",
+  "method": "GET",
+  "url": "https://publisher.example/news/story",
+  "origin": "https://publisher.example",
+  "agent": {
+    "id": "did:web:agent.example#research-agent",
+    "name": "Research Agent",
+    "operator": "Example Labs",
+    "principal": "user:example"
+  },
+  "declared": {
+    "purpose": "research",
+    "use": "read",
+    "budget": { "amount": "0.05", "currency": "USD" }
+  },
+  "policy": {
+    "url": "https://publisher.example/.well-known/agent-access.json",
+    "ruleId": "public-research",
+    "policyHash": "b74f2c6a...",
+    "decision": "allow"
+  },
+  "payment": { "required": false },
+  "response": { "status": 200, "contentType": "application/json" },
+  "previousHash": "previous-receipt-hash",
+  "receiptHash": "current-receipt-hash"
+}

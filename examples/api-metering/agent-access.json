@@ -1,0 +1,40 @@
+{
+  "version": "0.1",
+  "protocol": "open-agent-access",
+  "site": {
+    "name": "Metered API Example",
+    "origin": "http://localhost:4022",
+    "contact": "mailto:api@example.invalid",
+    "terms": "http://localhost:4022/agent-terms"
+  },
+  "defaults": {
+    "decision": "review",
+    "respectRobotsTxt": true,
+    "requireAgentIdentity": true,
+    "requirePurpose": true,
+    "requireReceipt": true
+  },
+  "rules": [
+    {
+      "id": "metered-data-api",
+      "match": { "methods": ["GET"], "paths": ["/api/data"] },
+      "decision": "charge",
+      "purposes": ["research", "monitoring", "agentic-commerce"],
+      "uses": ["read", "ai-input"],
+      "deniedUses": ["ai-train"],
+      "price": { "amount": "0.002", "currency": "USD", "unit": "request" },
+      "payment": {
+        "type": "x402",
+        "settlement": "algorand",
+        "network": "testnet",
+        "scheme": "exact",
+        "asset": "USDC",
+        "assetIdEnv": "USDC_TESTNET_ASA_ID",
+        "payToEnv": "AVM_ADDRESS",
+        "facilitatorUrlEnv": "FACILITATOR_URL"
+      },
+      "rateLimit": { "requests": 120, "window": "1m", "burst": 20, "respectRetryAfter": true },
+      "receipt": { "required": true }
+    }
+  ]
+}

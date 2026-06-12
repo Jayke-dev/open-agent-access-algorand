@@ -1,0 +1,14 @@
+{
+  "decision": "allow",
+  "reason": "matched_rule",
+  "ruleId": "public-research",
+  "policyHash": "b74f2c6a...",
+  "traceId": "d4f0a4e2-0000-4000-9000-000000000001",
+  "headers": {
+    "AA-Decision": "allow",
+    "AA-Policy-Ref": "https://publisher.example/.well-known/agent-access.json#public-research",
+    "AA-Trace-ID": "d4f0a4e2-0000-4000-9000-000000000001",
+    "AA-Attribution-Required": "true",
+    "AA-Retention": "30d"
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "$schema": "https://unpkg.com/@changesets/config@3.1.1/schema.json",
+  "changelog": "@changesets/cli/changelog",
+  "commit": false,
+  "fixed": [],
+  "linked": [
+    [
+      "@open-agent-access/core",
+      "@open-agent-access/hono",
+      "@open-agent-access/payments-algorand-x402",
+      "@open-agent-access/cli",
+      "@open-agent-access/storage-redis",
+      "@open-agent-access/storage-postgres",
+      "@open-agent-access/express",
+      "@open-agent-access/fastify",
+      "@open-agent-access/cloudflare",
+      "@open-agent-access/conformance"
+    ]
+  ],
+  "access": "public",
+  "baseBranch": "main",
+  "updateInternalDependencies": "patch",
+  "ignore": []
+}

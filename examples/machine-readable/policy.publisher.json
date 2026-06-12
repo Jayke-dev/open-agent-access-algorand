@@ -1,0 +1,31 @@
+{
+  "version": "0.1",
+  "protocol": "open-agent-access",
+  "site": {
+    "name": "Example Publisher",
+    "origin": "https://publisher.example",
+    "contact": "mailto:agents@publisher.example",
+    "securityContact": "mailto:security@publisher.example",
+    "terms": "https://publisher.example/agent-terms"
+  },
+  "defaults": {
+    "decision": "review",
+    "respectRobotsTxt": true,
+    "requireAgentIdentity": true,
+    "requirePurpose": true,
+    "requireReceipt": true
+  },
+  "rules": [
+    {
+      "id": "public-research",
+      "match": { "methods": ["GET"], "paths": ["/news/**", "/blog/**"] },
+      "decision": "allow",
+      "purposes": ["research", "accessibility", "indexing"],
+      "uses": ["read", "summarize", "quote", "ai-input"],
+      "deniedUses": ["ai-train"],
+      "rateLimit": { "requests": 60, "window": "1m", "burst": 10, "respectRetryAfter": true },
+      "attribution": { "required": true, "format": "source-url" },
+      "retention": { "maxAge": "30d", "allowEmbedding": false }
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+openapi: 3.1.0
+info:
+  title: Open Agent Access v0.1
+  version: 0.1.0
+paths:
+  /.well-known/agent-access.json:
+    get:
+      summary: Discover Open Agent Access policy
+      responses:
+        "200":
+          description: Agent access policy
+          content:
+            application/json:
+              schema:
+                $ref: "../../schema/agent-access.schema.json"
+  /premium/example:
+    get:
+      summary: Example paid resource
+      responses:
+        "200":
+          description: Resource response after policy allow or payment settlement
+        "402":
+          description: Payment required metadata
+          content:
+            application/json:
+              examples:
+                algorandX402:
+                  value:
+                    error: payment_required
+                    decision: charge
+                    ruleId: premium-archive-x402
+                    payment:
+                      type: x402
+                      settlement: algorand
+                      network: testnet
+                      asset: USDC
+                      price:
+                        amount: "0.005"
+                        currency: USD
+                        unit: request
