@@ -8,7 +8,7 @@ Open Agent Access has seven layers:
 4. Agent preflight for identity, purpose, use, budget, mandate authority, and local receipts.
 5. Site middleware for policy enforcement, rate/load controls, 402 metadata, and site receipts.
 6. Tool-boundary guards for MCP-style tool execution.
-7. Enterprise posture, risk, audit export, evidence digest, and immutable bundle tooling.
+7. Enterprise posture, risk, audit export, evidence digest, immutable bundle, and policy-as-code tooling.
 8. Optional payment adapters, starting with Algorand x402 TestNet.
 
 The core package owns schema validation, matching, decisions, headers, budgets,
@@ -19,6 +19,8 @@ and event evidence into control reports and SIEM/observability exports. Payment
 packages are optional and must never be required for tests or free access.
 The evidence package produces create-only manifests suitable for WORM storage or
 Object Lock workflows.
+The policy-as-code package projects OAA policy into OPA/Rego and Cedar-style
+review artifacts for enterprise authorization programs.
 
 Security-sensitive defaults:
 

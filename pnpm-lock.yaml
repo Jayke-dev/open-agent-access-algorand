@@ -102,6 +102,9 @@ importers:
       '@open-agent-access/payments-algorand-x402':
         specifier: workspace:*
         version: link:../payments-algorand-x402
+      '@open-agent-access/policy-as-code':
+        specifier: workspace:*
+        version: link:../policy-as-code
 
   packages/cloudflare:
     dependencies:
@@ -222,6 +225,12 @@ importers:
       hono:
         specifier: ^4.6.14
         version: 4.12.25
+
+  packages/policy-as-code:
+    dependencies:
+      '@open-agent-access/core':
+        specifier: workspace:*
+        version: link:../core
 
   packages/storage-postgres:
     dependencies:

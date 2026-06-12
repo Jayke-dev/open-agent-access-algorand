@@ -72,6 +72,13 @@
   manifest object to an immutable store abstraction.
 - `createMemoryImmutableEvidenceStore()`: test fixture for create-only behavior.
 
+## `@open-agent-access/policy-as-code`
+
+- `exportOpaBundle(policy)`: exports OAA policy as OPA data, Rego, and an input
+  example.
+- `exportCedarBundle(policy)`: exports OAA policy as a Cedar-style schema and
+  policy statements.
+
 ## `@open-agent-access/hono`
 
 - `agentAccessMiddleware(options)`: Hono middleware for policy enforcement,
@@ -98,6 +105,7 @@ oaa enterprise export-audit .oaa/receipts.jsonl --format otel --redact
 oaa evidence bundle --policy agent-access.json --mandates agent-mandates.json --ledger .oaa/receipts.jsonl --output oaa-evidence-bundle.json
 oaa evidence verify oaa-evidence-bundle.json
 oaa identity keygen
+oaa policy export agent-access.json --format opa --output /tmp/oaa-opa
 oaa identity sign-request --private-key .oaa/agent-private.pem --key-id did:web:agent.example#key-1 --agent-id did:web:agent.example --url URL --purpose research --use read
 oaa policy init --template publisher --origin https://example.com
 oaa policy validate ./agent-access.json

@@ -23,7 +23,8 @@
       "@open-agent-access/mcp": ["./packages/mcp/src/index.ts"],
       "@open-agent-access/enterprise": ["./packages/enterprise/src/index.ts"],
       "@open-agent-access/identity": ["./packages/identity/src/index.ts"],
-      "@open-agent-access/evidence": ["./packages/evidence/src/index.ts"]
+      "@open-agent-access/evidence": ["./packages/evidence/src/index.ts"],
+      "@open-agent-access/policy-as-code": ["./packages/policy-as-code/src/index.ts"]
     }
   },
   "include": [

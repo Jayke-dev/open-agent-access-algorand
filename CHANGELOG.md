@@ -8,6 +8,7 @@ Initial developer preview:
 - mandate graph validation and `/.well-known/agent-mandates.json` schema
 - enterprise control reports, access risk scoring, evidence digests, and audit exports
 - immutable evidence bundle manifests and create-only storage abstraction
+- OPA/Rego and Cedar-style policy-as-code export
 - verifiable agent identity helpers and optional signed-header enforcement
 - TypeScript agent preflight client
 - Hono middleware

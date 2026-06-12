@@ -6,7 +6,7 @@ import { enterpriseExportAuditCommand, enterpriseReportCommand } from "./command
 import { evidenceBundleCommand, evidenceVerifyCommand } from "./commands/evidence.js";
 import { identityKeygenCommand, identitySignRequestCommand, identityVerifyRequestCommand } from "./commands/identity.js";
 import { initCommand } from "./commands/init.js";
-import { explainPolicyCommand, initPolicyCommand, lintPolicyCommand, printPolicyCommand, validatePolicyCommand } from "./commands/policy.js";
+import { explainPolicyCommand, exportPolicyCommand, initPolicyCommand, lintPolicyCommand, printPolicyCommand, validatePolicyCommand } from "./commands/policy.js";
 import {
   digestReceiptsCommand,
   keygenReceiptsCommand,
@@ -64,6 +64,7 @@ async function main() {
   if (command === "policy" && subcommand === "validate" && target) return validatePolicyCommand(target, Boolean(options.json));
   if (command === "policy" && subcommand === "lint" && target) return lintPolicyCommand(target, Boolean(options.json));
   if (command === "policy" && subcommand === "explain" && target && positionals[3]) return explainPolicyCommand(target, positionals[3], options);
+  if (command === "policy" && subcommand === "export" && target) return exportPolicyCommand(target, options);
   if (command === "policy" && subcommand === "print" && target) return printPolicyCommand(target, Boolean(options.json));
   if (command === "check" && subcommand) return checkCommand(subcommand, options);
   if (command === "fetch" && subcommand) return fetchCommand(subcommand, options);
@@ -129,6 +130,7 @@ Commands:
   oaa policy validate ./agent-access.json [--json]
   oaa policy lint ./agent-access.json [--json]
   oaa policy explain ./agent-access.json URL [--method GET] [--purpose research] [--use read] [--json]
+  oaa policy export ./agent-access.json [--format opa|cedar] [--output ./bundle] [--json]
   oaa policy print https://example.com [--json]
   oaa check URL --purpose research --use read [--budget USD:0.05] [--json]
   oaa fetch URL --purpose research --use read [--budget USD:0.05] [--pay] [--json]

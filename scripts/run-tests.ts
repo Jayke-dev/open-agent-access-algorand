@@ -62,6 +62,7 @@ import {
   putImmutableEvidenceBundle,
   verifyEvidenceBundle
 } from "../packages/evidence/src/index.js";
+import { exportCedarBundle, exportOpaBundle } from "../packages/policy-as-code/src/index.js";
 
 type Test = { name: string; fn: () => Promise<void> | void };
 const tests: Test[] = [];
@@ -424,6 +425,20 @@ test("immutable evidence bundles verify and write create-only objects", async ()
 
   const tampered = { ...bundle, receiptHashes: ["tampered"] };
   assert.equal(verifyEvidenceBundle(tampered).valid, false);
+});
+
+test("policy-as-code exports OPA and Cedar-style bundles", () => {
+  const opa = exportOpaBundle(policy);
+  assert.equal(opa.format, "opa");
+  assert.ok(opa.rego.includes("package open_agent_access"));
+  assert.equal((opa.data as { oaa: { rules: Array<{ id: string }> } }).oaa.rules[0].id, "docs");
+  assert.ok(opa.policyHash);
+
+  const cedar = exportCedarBundle(policy);
+  assert.equal(cedar.format, "cedar");
+  assert.equal(cedar.policies.length, policy.rules.length);
+  assert.ok(cedar.policies[0].includes("context.policyHash"));
+  assert.ok(cedar.policies.some((entry) => entry.includes("premium")));
 });
 
 test("policy lint catches unsafe operational gaps", () => {

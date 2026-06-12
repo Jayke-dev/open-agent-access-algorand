@@ -1,6 +1,7 @@
 import { createPolicyTemplate, discoverPolicy, explainPolicyDecision, lintAgentAccessPolicy, policyTemplateNames, readPolicyFile, validateAgentAccessPolicy, type PolicyTemplateName } from "@open-agent-access/core";
+import { exportCedarBundle, exportOpaBundle } from "@open-agent-access/policy-as-code";
 import { mkdir, writeFile } from "node:fs/promises";
-import { dirname } from "node:path";
+import { dirname, join } from "node:path";
 
 export async function validatePolicyCommand(path: string, json = false) {
   const policy = await readPolicyFile(path);
@@ -72,6 +73,40 @@ export async function explainPolicyCommand(path: string, url: string, options: R
   for (const rule of explanation.rules) {
     console.log(`${rule.matched ? "match" : "skip"} ${rule.ruleId}: ${rule.reasons.join("; ")}`);
   }
+}
+
+export async function exportPolicyCommand(path: string, options: Record<string, string | boolean | undefined>) {
+  const policy = await readPolicyFile(path);
+  const format = typeof options.format === "string" ? options.format : "opa";
+  const output = typeof options.output === "string" ? options.output : undefined;
+  if (format === "opa") {
+    const bundle = exportOpaBundle(policy);
+    if (!output || options.json) {
+      console.log(JSON.stringify(bundle, null, 2));
+      return;
+    }
+    await mkdir(output, { recursive: true });
+    await writeFile(join(output, "data.json"), `${JSON.stringify(bundle.data, null, 2)}\n`, "utf8");
+    await writeFile(join(output, "policy.rego"), bundle.rego, "utf8");
+    await writeFile(join(output, "input.example.json"), `${JSON.stringify(bundle.inputExample, null, 2)}\n`, "utf8");
+    console.log(`OPA bundle written: ${output}`);
+    console.log(`policyHash=${bundle.policyHash}`);
+    return;
+  }
+  if (format === "cedar") {
+    const bundle = exportCedarBundle(policy);
+    if (!output || options.json) {
+      console.log(JSON.stringify(bundle, null, 2));
+      return;
+    }
+    await mkdir(output, { recursive: true });
+    await writeFile(join(output, "schema.json"), `${JSON.stringify(bundle.schema, null, 2)}\n`, "utf8");
+    await writeFile(join(output, "policies.cedar"), `${bundle.policies.join("\n\n")}\n`, "utf8");
+    console.log(`Cedar-style bundle written: ${output}`);
+    console.log(`policyHash=${bundle.policyHash}`);
+    return;
+  }
+  throw new Error("--format must be opa or cedar");
 }
 
 function print(value: unknown, json: boolean) {

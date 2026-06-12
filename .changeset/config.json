@@ -19,7 +19,8 @@
       "@open-agent-access/mcp",
       "@open-agent-access/enterprise",
       "@open-agent-access/identity",
-      "@open-agent-access/evidence"
+      "@open-agent-access/evidence",
+      "@open-agent-access/policy-as-code"
     ]
   ],
   "access": "public",
