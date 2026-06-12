@@ -27,6 +27,17 @@
 - `mandateHash(mandate)`: stable hash for receipt and event binding.
 - `buildMandateReceiptContext(result)`: compact mandate evidence for receipts.
 
+## `@open-agent-access/identity`
+
+- `createAgentIdentityKeyPair()`: creates local Ed25519 signing keys.
+- `signAgentAccessHeaders(headers, options)`: signs agent access headers against
+  method and URL.
+- `verifyAgentAccessHeaders(headers, options)`: verifies signed identity against
+  trusted public keys.
+- `buildAgentSignatureInput(headers, context)`: returns the canonical signature
+  payload.
+- `parseTrustedAgentKeys(input)`: validates trusted-key lists.
+
 ## `@open-agent-access/mcp`
 
 - `createAgentAccessMcpToolGuard(options)`: creates structural guards for MCP
@@ -74,6 +85,8 @@ oaa doctor
 oaa conformance run
 oaa enterprise report --policy agent-access.json --mandates agent-mandates.json --ledger .oaa/receipts.jsonl
 oaa enterprise export-audit .oaa/receipts.jsonl --format otel --redact
+oaa identity keygen
+oaa identity sign-request --private-key .oaa/agent-private.pem --key-id did:web:agent.example#key-1 --agent-id did:web:agent.example --url URL --purpose research --use read
 oaa policy init --template publisher --origin https://example.com
 oaa policy validate ./agent-access.json
 oaa policy lint ./agent-access.json

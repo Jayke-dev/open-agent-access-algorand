@@ -289,6 +289,7 @@ function checkPolicyOperationalControls(policy: AgentAccessPolicy, findings: Ent
   } else if (Date.parse(policy.expiresAt) <= now.getTime()) {
     findings.push(finding("OAA-ENT-013", "error", "Policy is expired", "Expired policy should not be used for enterprise decisions.", "expiresAt", "Publish a current policy."));
   }
+  findings.push(finding("OAA-ENT-014", "info", "Verify agent identities in production middleware", "Declared agent headers should be backed by signed identity in enterprise deployments.", "middleware.agentIdentity", "Enable agentIdentity.required with trusted public keys or a federated verifier."));
 }
 
 function checkRules(rules: AgentAccessRule[], findings: EnterpriseControlFinding[]) {

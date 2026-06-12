@@ -46,6 +46,7 @@ import { agentAccessExpressMiddleware } from "../packages/express/src/index.js";
 import { createAgentAccessFastifyHook } from "../packages/fastify/src/index.js";
 import { withAgentAccessCloudflare } from "../packages/cloudflare/src/index.js";
 import { runConformanceSuite } from "../packages/conformance/src/index.js";
+import { createAgentIdentityKeyPair, signAgentAccessHeaders, verifyAgentAccessHeaders } from "../packages/identity/src/index.js";
 import { evaluateMandate, validateMandateDocument, type MandateDocument } from "../packages/mandates/src/index.js";
 import { createAgentAccessMcpToolGuard, McpToolAuthorizationError } from "../packages/mcp/src/index.js";
 import {
@@ -479,6 +480,42 @@ test("agent and site headers", () => {
   assert.equal(parseSiteDecisionHeaders(siteHeaders).receiptId, "receipt");
 });
 
+test("signed agent identity verifies request headers", () => {
+  const keys = createAgentIdentityKeyPair();
+  const headers = buildAgentAccessHeaders({
+    agent: { id: "did:web:a", name: "A", operator: "Ops", principal: "user:1" },
+    purpose: "research",
+    use: "read",
+    budget: { currency: "USD", amount: "0.05" },
+    traceId: "trace"
+  });
+  signAgentAccessHeaders(headers, {
+    method: "GET",
+    url: "https://example.com/docs/a",
+    keyId: "did:web:a#key-1",
+    privateKeyPem: keys.privateKeyPem,
+    createdAt: new Date("2026-06-12T00:00:00.000Z")
+  });
+  const verified = verifyAgentAccessHeaders(headers, {
+    method: "GET",
+    url: "https://example.com/docs/a",
+    trustedKeys: [{ keyId: "did:web:a#key-1", agentId: "did:web:a", publicKeyPem: keys.publicKeyPem }],
+    now: new Date("2026-06-12T00:00:01.000Z")
+  });
+  assert.equal(verified.ok, true);
+  assert.equal(verified.reason, "verified");
+
+  headers.set("AA-Purpose", "ai-train");
+  const tampered = verifyAgentAccessHeaders(headers, {
+    method: "GET",
+    url: "https://example.com/docs/a",
+    trustedKeys: [{ keyId: "did:web:a#key-1", agentId: "did:web:a", publicKeyPem: keys.publicKeyPem }],
+    now: new Date("2026-06-12T00:00:01.000Z")
+  });
+  assert.equal(tampered.ok, false);
+  assert.equal(tampered.reason, "invalid_signature");
+});
+
 test("receipt append, verify, digest, and tamper detection", async () => {
   const dir = await mkdtemp(join(tmpdir(), "oaa-"));
   const ledger = join(dir, "receipts.jsonl");
@@ -806,6 +843,59 @@ test("Hono middleware decisions and receipts", async () => {
   const replay = await app.request("/paid", { headers: paidHeaders });
   assert.equal(replay.status, 409);
   assert.equal((await replay.json() as { error: string }).error, "payment_replay_detected");
+});
+
+test("Hono middleware can require signed agent identity", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "oaa-hono-identity-"));
+  const policyPath = join(dir, "agent-access.json");
+  const ledgerPath = join(dir, "site-receipts.jsonl");
+  await writeFile(policyPath, JSON.stringify({
+    version: "0.1",
+    protocol: "open-agent-access",
+    site: { name: "Signed", origin: "http://localhost" },
+    defaults: { decision: "deny", requireAgentIdentity: true, requirePurpose: true },
+    rules: [
+      { id: "signed", match: { methods: ["GET"], paths: ["/signed"] }, decision: "allow", purposes: ["research"], uses: ["read"] }
+    ]
+  }), "utf8");
+
+  const keys = createAgentIdentityKeyPair();
+  const app = new Hono();
+  app.use("*", agentAccessMiddleware({
+    policyPath,
+    receipts: { type: "jsonl", path: ledgerPath },
+    agentIdentity: {
+      required: true,
+      trustedKeys: [{ keyId: "did:web:agent.example#key-1", agentId: "did:web:agent.example", publicKeyPem: keys.publicKeyPem }]
+    }
+  }));
+  app.get("/signed", (c) => c.json({ ok: true }));
+
+  const unsignedHeaders = buildAgentAccessHeaders({
+    agent: { id: "did:web:agent.example" },
+    purpose: "research",
+    use: "read",
+    traceId: "unsigned"
+  });
+  const unsigned = await app.request("http://localhost/signed", { headers: unsignedHeaders });
+  assert.equal(unsigned.status, 401);
+  assert.equal(unsigned.headers.get("AA-Agent-Identity-Verified"), "false");
+
+  const signedHeaders = buildAgentAccessHeaders({
+    agent: { id: "did:web:agent.example" },
+    purpose: "research",
+    use: "read",
+    traceId: "signed"
+  });
+  signAgentAccessHeaders(signedHeaders, {
+    method: "GET",
+    url: "http://localhost/signed",
+    keyId: "did:web:agent.example#key-1",
+    privateKeyPem: keys.privateKeyPem
+  });
+  const signed = await app.request("http://localhost/signed", { headers: signedHeaders });
+  assert.equal(signed.status, 200);
+  assert.equal(signed.headers.get("AA-Agent-Identity-Verified"), "true");
 });
 
 let passed = 0;

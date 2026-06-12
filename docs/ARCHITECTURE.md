@@ -3,12 +3,13 @@
 Open Agent Access has seven layers:
 
 1. Policy discovery at `/.well-known/agent-access.json`.
-2. Optional mandate discovery at `/.well-known/agent-mandates.json`.
-3. Agent preflight for identity, purpose, use, budget, mandate authority, and local receipts.
-4. Site middleware for policy enforcement, rate/load controls, 402 metadata, and site receipts.
-5. Tool-boundary guards for MCP-style tool execution.
-6. Enterprise posture, risk, audit export, and evidence digest tooling.
-7. Optional payment adapters, starting with Algorand x402 TestNet.
+2. Optional verifiable agent identity using signed agent access headers.
+3. Optional mandate discovery at `/.well-known/agent-mandates.json`.
+4. Agent preflight for identity, purpose, use, budget, mandate authority, and local receipts.
+5. Site middleware for policy enforcement, rate/load controls, 402 metadata, and site receipts.
+6. Tool-boundary guards for MCP-style tool execution.
+7. Enterprise posture, risk, audit export, and evidence digest tooling.
+8. Optional payment adapters, starting with Algorand x402 TestNet.
 
 The core package owns schema validation, matching, decisions, headers, budgets,
 hashing, receipts, and event trails. Framework packages consume core decisions.
@@ -25,6 +26,7 @@ Security-sensitive defaults:
 - mandate evaluation fails closed when authority is missing, expired, or out of scope
 - enterprise audit exports can redact sensitive identifiers while preserving
   stable correlation hashes
+- Hono middleware can require signed agent identity before policy decisions run
 - middleware rate limits before route work
 - paid route fulfilment uses replay checks and in-memory idempotency locks
 - 402 responses include a resource binding hash derived from method, URL, policy

@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://open-agent-access.org/schema/trusted-agent-keys.schema.json",
+  "title": "Open Agent Access Trusted Agent Keys",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": ["keyId", "publicKeyPem"],
+    "properties": {
+      "keyId": {
+        "type": "string",
+        "minLength": 1
+      },
+      "publicKeyPem": {
+        "type": "string",
+        "minLength": 1
+      },
+      "agentId": {
+        "type": "string"
+      },
+      "expiresAt": {
+        "type": "string"
+      }
+    },
+    "additionalProperties": false
+  }
+}

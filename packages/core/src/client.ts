@@ -8,6 +8,12 @@ import type { AgentAccessRequest, AgentIdentity, ReceiptLedgerOptions, ReceiptRe
 
 export interface AgentAccessClientOptions {
   agent: AgentIdentity;
+  identity?: {
+    signer?: {
+      keyId: string;
+      privateKeyPem: string;
+    };
+  };
   ledger?: ReceiptLedgerOptions;
   payments?: {
     algorandX402?: {
@@ -111,6 +117,15 @@ export function createAgentAccessClient(options: AgentAccessClientOptions) {
           budget: requestOptions.budget,
           traceId
         }).forEach((value, key) => headers.set(key, value));
+        if (options.identity?.signer) {
+          const { signAgentAccessHeaders } = await import("@open-agent-access/identity");
+          signAgentAccessHeaders(headers, {
+            method,
+            url,
+            keyId: options.identity.signer.keyId,
+            privateKeyPem: options.identity.signer.privateKeyPem
+          });
+        }
 
         if (paymentRequired && options.payments?.algorandX402?.enabled) {
           const { wrapFetchWithAlgorandX402Payment } = await import("@open-agent-access/payments-algorand-x402");

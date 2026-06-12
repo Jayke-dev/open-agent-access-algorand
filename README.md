@@ -146,6 +146,7 @@ Premium fetches show payment-required metadata and do not pay unless `--pay` or
 | Express middleware | `@open-agent-access/express` | Supported |
 | Fastify hook | `@open-agent-access/fastify` | Supported |
 | Cloudflare Workers | `@open-agent-access/cloudflare` | Supported |
+| Verifiable agent identity | `@open-agent-access/identity`, `oaa identity keygen` | Supported |
 | Mandate graphs | `@open-agent-access/mandates` | Supported |
 | MCP tool guard | `@open-agent-access/mcp` | Supported |
 | Enterprise controls | `@open-agent-access/enterprise`, `oaa enterprise report` | Supported |
@@ -177,6 +178,7 @@ pnpm oaa receipts reconcile .oaa/receipts.jsonl .oaa/site-receipts.jsonl
 pnpm oaa enterprise report --policy agent-access.json --mandates agent-mandates.json --ledger .oaa/receipts.jsonl
 pnpm oaa enterprise export-audit .oaa/receipts.jsonl --format otel --redact
 pnpm oaa enterprise export-audit .oaa/receipts.jsonl --format cef --redact --strict
+pnpm oaa identity keygen
 ```
 
 The enterprise report scores fail-closed defaults, required identity/purpose,
@@ -210,6 +212,7 @@ authors, and protocol reviewers are welcome. Good starting labels include
 - [Architecture](docs/ARCHITECTURE.md)
 - [API Reference](docs/API_REFERENCE.md)
 - [Header Registry](docs/HEADER_REGISTRY.md)
+- [Verifiable Agent Identity](docs/AGENT_IDENTITY.md)
 - [Mandates](docs/MANDATES.md)
 - [Trust Passports](docs/TRUST_PASSPORT.md)
 - [Enterprise Readiness](docs/ENTERPRISE_READINESS.md)

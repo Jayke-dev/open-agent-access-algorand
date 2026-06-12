@@ -17,7 +17,8 @@
       "@open-agent-access/conformance",
       "@open-agent-access/mandates",
       "@open-agent-access/mcp",
-      "@open-agent-access/enterprise"
+      "@open-agent-access/enterprise",
+      "@open-agent-access/identity"
     ]
   ],
   "access": "public",

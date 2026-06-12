@@ -14,6 +14,7 @@ import {
   type ReceiptLedgerOptions,
   type ReceiptRecord
 } from "@open-agent-access/core";
+import { verifyAgentAccessHeaders, type TrustedAgentKey } from "@open-agent-access/identity";
 import { parseAlgorandX402SettlementHeaders } from "@open-agent-access/payments-algorand-x402";
 import { buildDecisionHeaders, decisionStatus } from "./response.js";
 import { createMemoryReplayStore, type ReplayStore } from "./replay.js";
@@ -29,6 +30,11 @@ export interface AgentAccessMiddlewareOptions {
   };
   replayStore?: ReplayStore;
   requireIdempotencyKeyForPaid?: boolean;
+  agentIdentity?: {
+    required?: boolean;
+    trustedKeys?: TrustedAgentKey[];
+    maxSkewMs?: number;
+  };
   algorandX402?: {
     enabled?: boolean;
     payTo?: string;
@@ -75,6 +81,29 @@ export function agentAccessMiddleware(options: AgentAccessMiddlewareOptions): Mi
 
     const parsed = parseAgentAccessHeaders(c.req.raw.headers);
     const traceId = parsed?.traceId ?? createTraceId();
+    const identityVerification = options.agentIdentity?.required
+      ? verifyAgentAccessHeaders(c.req.raw.headers, {
+        method: c.req.method,
+        url: c.req.url,
+        trustedKeys: options.agentIdentity.trustedKeys ?? [],
+        maxSkewMs: options.agentIdentity.maxSkewMs
+      })
+      : undefined;
+    if (identityVerification && !identityVerification.ok) {
+      c.header("AA-Decision", "deny");
+      c.header("AA-Trace-ID", traceId);
+      c.header("AA-Agent-Identity-Verified", "false");
+      c.header("AA-Agent-Identity-Reason", identityVerification.reason);
+      return c.json({
+        error: "agent_identity_unverified",
+        reason: identityVerification.reason,
+        traceId
+      }, 401);
+    }
+    if (identityVerification?.ok) {
+      c.header("AA-Agent-Identity-Verified", "true");
+      c.header("AA-Agent-Key-ID", identityVerification.keyId ?? "");
+    }
     const requestUrl = new URL(c.req.url);
     const policyUrl = options.policyUrl ?? `${requestUrl.origin}${wellKnownPath}`;
     const decision = decideAccess(loaded.policy, {
