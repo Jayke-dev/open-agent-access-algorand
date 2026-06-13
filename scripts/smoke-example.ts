@@ -1,6 +1,7 @@
 import { spawn, spawnSync } from "node:child_process";
 
 const server = spawn("corepack", ["pnpm", "--filter", "@kirkelabs/open-agent-access-example-hono-free-and-paid-site", "dev"], {
+  detached: true,
   stdio: ["ignore", "pipe", "pipe"]
 });
 
@@ -20,7 +21,7 @@ try {
   run("corepack", ["pnpm", "oaa", "receipts", "verify", ".oaa/receipts.jsonl"]);
   console.log("example smoke passed");
 } finally {
-  server.kill();
+  stopServer();
 }
 
 async function waitForServer() {
@@ -39,5 +40,15 @@ function run(command: string, args: string[]) {
   });
   if (result.status !== 0) {
     throw new Error(`${command} ${args.join(" ")} failed\n${result.stdout}\n${result.stderr}`);
+  }
+}
+
+function stopServer() {
+  if (server.pid === undefined) return;
+
+  try {
+    process.kill(-server.pid, "SIGTERM");
+  } catch {
+    server.kill("SIGTERM");
   }
 }
