@@ -31,6 +31,36 @@ hosting. The generated policy is discoverable at
 Static sites can demonstrate the agent-passport handshake. Real enforcement
 belongs at middleware, edge, API gateway, or resource-server level.
 
+## Vercel / Next.js
+
+```sh
+npm install @kirkelabs/open-agent-access-vercel @kirkelabs/open-agent-access-core
+```
+
+For Edge middleware, import the policy JSON at build time and keep
+`agent-access.json` as the source of truth.
+
+```ts
+// middleware.ts
+import policy from "./agent-access.json";
+import { createAgentAccessVercelMiddleware } from "@kirkelabs/open-agent-access-vercel";
+
+export default createAgentAccessVercelMiddleware({
+  policy,
+  protectedPaths: ["/essays/:path*"],
+  humanFallback: "allow",
+  mode: "passport-required"
+});
+
+export const config = {
+  matcher: ["/essays/:path*", "/.well-known/agent-access.json"]
+};
+```
+
+Normal browser requests continue through. Agent-like requests are evaluated
+against the policy and receive deterministic `AA-*` headers, review decisions,
+or JSON denial/payment responses.
+
 ## Hono
 
 ```sh
@@ -88,10 +118,11 @@ npm install @kirkelabs/open-agent-access-cloudflare @kirkelabs/open-agent-access
 
 ```ts
 import { withAgentAccessCloudflare } from "@kirkelabs/open-agent-access-cloudflare";
+import policy from "./agent-access.json";
 
 export default {
   fetch: withAgentAccessCloudflare({
-    policyPath: "./agent-access.json"
+    policy
   }, async () => new Response("ok"))
 };
 ```

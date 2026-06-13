@@ -177,6 +177,14 @@ oaa receipts verify-signatures .oaa/signed-receipts.jsonl --public-key .oaa/rece
 - `withAgentAccessCloudflare(options, handler)`: Worker fetch wrapper for inline
   policy enforcement and injected receipt sinks.
 
+## `@kirkelabs/open-agent-access-vercel`
+
+- `createAgentAccessVercelMiddleware(options)`: Vercel/Next.js middleware for
+  protected static or dynamic routes, policy serving, human browser fallback,
+  and agent decision headers.
+- `createAgentAccessStaticPolicyCopy(policy)`: validates and serializes a
+  policy for copying to `public/.well-known/agent-access.json`.
+
 ## `@kirkelabs/open-agent-access-conformance`
 
 - `runConformanceSuite()`: protocol conformance checks for policy validation,

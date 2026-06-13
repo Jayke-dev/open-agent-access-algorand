@@ -5,6 +5,7 @@
 - policy schema
 - preflight client
 - Hono middleware
+- Express, Fastify, Cloudflare Worker, and Vercel/Next.js middleware adapters
 - JSONL receipts
 - Algorand x402 TestNet adapter
 - mandate graph package
@@ -16,7 +17,7 @@
 
 ## v0.2
 
-- Express/Fastify/Next middleware
+- additional framework adapters and deeper Next.js examples
 - RSL import
 - robots.txt compatibility checks
 - richer MCP server/tool adapters for common SDKs
@@ -26,7 +27,6 @@
 
 ## v0.3
 
-- Cloudflare Worker adapter
 - publisher dashboard
 - batch crawl negotiation
 - proof anchoring

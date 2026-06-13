@@ -13,6 +13,8 @@ Open Agent Access has seven layers:
 
 The core package owns schema validation, matching, decisions, headers, budgets,
 hashing, receipts, and event trails. Framework packages consume core decisions.
+The Hono, Express, Fastify, Cloudflare, and Vercel adapters provide route,
+worker, or edge-middleware enforcement without changing the protocol surface.
 Mandate and MCP packages sit above core to enforce delegated authority before
 tools or fetches run. The enterprise package turns policy, mandate, receipt,
 and event evidence into control reports and SIEM/observability exports. Payment

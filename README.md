@@ -79,8 +79,8 @@ pnpm oaa policy init --template publisher --origin https://publisher.example --o
 ```
 
 See [Integration Guide](docs/INTEGRATION_GUIDE.md) for copy-paste setup paths
-for static sites, Hono, Express, Fastify, Cloudflare Workers, agent clients, and
-Algorand x402 paid routes.
+for static sites, Vercel/Next.js, Hono, Express, Fastify, Cloudflare Workers,
+agent clients, and Algorand x402 paid routes.
 
 ## Site Owner Quickstart
 
@@ -170,6 +170,7 @@ Premium fetches show payment-required metadata and do not pay unless `--pay` or
 | Express middleware | `@kirkelabs/open-agent-access-express` | Supported |
 | Fastify hook | `@kirkelabs/open-agent-access-fastify` | Supported |
 | Cloudflare Workers | `@kirkelabs/open-agent-access-cloudflare` | Supported |
+| Vercel/Next.js middleware | `@kirkelabs/open-agent-access-vercel` | Supported |
 | Verifiable agent identity | `@kirkelabs/open-agent-access-identity`, `oaa identity keygen` | Supported |
 | Mandate graphs | `@kirkelabs/open-agent-access-mandates` | Supported |
 | MCP tool guard | `@kirkelabs/open-agent-access-mcp` | Supported |

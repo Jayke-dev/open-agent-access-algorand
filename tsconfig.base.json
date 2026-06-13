@@ -32,6 +32,7 @@
       "@kirkelabs/open-agent-access-express": ["./packages/express/src/index.ts"],
       "@kirkelabs/open-agent-access-fastify": ["./packages/fastify/src/index.ts"],
       "@kirkelabs/open-agent-access-cloudflare": ["./packages/cloudflare/src/index.ts"],
+      "@kirkelabs/open-agent-access-vercel": ["./packages/vercel/src/index.ts"],
       "@kirkelabs/open-agent-access-storage-redis": ["./packages/storage-redis/src/index.ts"],
       "@kirkelabs/open-agent-access-storage-postgres": ["./packages/storage-postgres/src/index.ts"]
     }

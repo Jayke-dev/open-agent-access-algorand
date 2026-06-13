@@ -46,6 +46,7 @@ import { createPostgresReplayStore, createPostgresReplayTableSql } from "../pack
 import { agentAccessExpressMiddleware } from "../packages/express/src/index.js";
 import { createAgentAccessFastifyHook } from "../packages/fastify/src/index.js";
 import { withAgentAccessCloudflare } from "../packages/cloudflare/src/index.js";
+import { createAgentAccessVercelMiddleware } from "../packages/vercel/src/index.js";
 import { runConformanceSuite } from "../packages/conformance/src/index.js";
 import { getAllComplianceMappings, getComplianceMapping, listComplianceFrameworks } from "../packages/compliance/src/index.js";
 import { createAgentIdentityKeyPair, signAgentAccessHeaders, verifyAgentAccessHeaders } from "../packages/identity/src/index.js";
@@ -897,6 +898,57 @@ test("Cloudflare adapter enforces inline policy", async () => {
   const paid = await handler(new Request("https://worker.example/paid", { headers: paidHeaders }), {}, {});
   assert.equal(paid.status, 402);
   assert.equal(paid.headers.get("AA-Decision"), "charge");
+  assert.equal(receipts.length, 2);
+});
+
+test("Vercel adapter protects static publisher routes with human fallback", async () => {
+  const receipts: unknown[] = [];
+  const middleware = createAgentAccessVercelMiddleware({
+    protectedPaths: ["/essays/:path*"],
+    humanFallback: "allow",
+    policy: {
+      version: "0.1",
+      protocol: "open-agent-access",
+      site: { name: "Publisher", origin: "https://publisher.example" },
+      defaults: { decision: "review", requireAgentIdentity: true, requirePurpose: true },
+      rules: [
+        {
+          id: "essays-agent-passport-required",
+          match: { methods: ["GET"], paths: ["/essays/**"] },
+          decision: "allow",
+          purposes: ["research"],
+          uses: ["read", "summarize"],
+          deniedUses: ["ai-train"]
+        }
+      ]
+    },
+    receiptSink(receipt) {
+      receipts.push(receipt);
+    }
+  });
+
+  const human = await middleware(new Request("https://publisher.example/essays/", {
+    headers: { accept: "text/html", "user-agent": "Mozilla/5.0" }
+  }));
+  assert.equal(human.status, 200);
+  assert.equal(human.headers.get("x-middleware-next"), "1");
+  assert.equal(human.headers.get("AA-Decision"), "human_fallback");
+
+  const undecidedAgent = await middleware(new Request("https://publisher.example/essays/", {
+    headers: { "user-agent": "ResearchAgent/1.0", "aa-agent-id": "did:web:agent.example" }
+  }));
+  assert.equal(undecidedAgent.status, 403);
+  assert.equal(undecidedAgent.headers.get("AA-Decision"), "review");
+
+  const allowedHeaders = buildAgentAccessHeaders({
+    agent: { id: "did:web:agent.example" },
+    purpose: "research",
+    use: "read",
+    traceId: "vercel-trace"
+  });
+  const allowed = await middleware(new Request("https://publisher.example/essays/", { headers: allowedHeaders }));
+  assert.equal(allowed.status, 200);
+  assert.equal(allowed.headers.get("AA-Decision"), "allow");
   assert.equal(receipts.length, 2);
 });
 
