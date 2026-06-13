@@ -25,7 +25,10 @@ jobs:
       - run: corepack pnpm lint
       - run: corepack pnpm package:check
       - run: corepack pnpm pack:dry-run
+      - run: npm whoami --registry https://registry.npmjs.org
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: Publish to npm
-        run: corepack pnpm -r publish --access public --provenance --no-git-checks
+        run: corepack pnpm publish:packages
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

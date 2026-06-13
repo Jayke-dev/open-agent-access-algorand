@@ -29,6 +29,7 @@
     "lint": "tsc -p tsconfig.base.json --noEmit",
     "package:check": "tsx scripts/check-packages.ts",
     "pack:dry-run": "tsx scripts/pack-dry-run.ts",
+    "publish:packages": "tsx scripts/publish-packages.ts",
     "security:check": "tsx scripts/check-secrets.ts",
     "smoke:example": "tsx scripts/smoke-example.ts",
     "oaa": "tsx packages/cli/src/index.ts"
